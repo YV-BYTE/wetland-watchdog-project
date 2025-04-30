@@ -1,12 +1,18 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CommunityDriveForm = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -24,12 +30,30 @@ const CommunityDriveForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast.error("You must be logged in to create a community drive");
+      navigate("/auth");
+      return;
+    }
+    
     setIsSubmitting(true);
 
-    // Simulate API call
     try {
-      // In a real app with Supabase, you would save to the database here
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { error } = await supabase
+        .from('community_drives')
+        .insert([
+          {
+            creator_id: user.id,
+            title: formData.title,
+            description: formData.description,
+            date: formData.date,
+            time: formData.time,
+            location: formData.location
+          }
+        ]);
+
+      if (error) throw error;
       
       toast.success("Community drive created successfully!", {
         description: "Your event is now visible to the community.",
@@ -43,9 +67,13 @@ const CommunityDriveForm = () => {
         time: "",
         location: ""
       });
-    } catch (error) {
+      
+      // Refresh the community drives list - switch to the drives tab
+      document.querySelector('[value="drives"]')?.dispatchEvent(new Event('click'));
+      
+    } catch (error: any) {
       toast.error("Error creating community drive", {
-        description: "Please try again later.",
+        description: error.message || "Please try again later.",
       });
       console.error("Form submission error:", error);
     } finally {
@@ -55,6 +83,19 @@ const CommunityDriveForm = () => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-md">
+      {!user && (
+        <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200 text-yellow-800 mb-4">
+          <p className="font-medium">You need to be logged in to create a community drive</p>
+          <Button 
+            variant="outline" 
+            className="mt-2"
+            onClick={() => navigate("/auth")}
+          >
+            Sign in / Create account
+          </Button>
+        </div>
+      )}
+      
       <div className="space-y-2">
         <Label htmlFor="title">Event Title</Label>
         <Input
@@ -120,7 +161,7 @@ const CommunityDriveForm = () => {
       <Button
         type="submit"
         className="w-full bg-primary"
-        disabled={isSubmitting}
+        disabled={isSubmitting || !user}
       >
         {isSubmitting ? "Creating..." : "Create Community Drive"}
       </Button>

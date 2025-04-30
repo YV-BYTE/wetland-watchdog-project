@@ -10,7 +10,7 @@ export function useStatistics() {
     reports_submitted: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchStatistics() {
@@ -41,6 +41,33 @@ export function useStatistics() {
     }
 
     fetchStatistics();
+    
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wetland_statistics'
+        },
+        (payload) => {
+          if (payload.new) {
+            setStats({
+              wetlands_protected: payload.new.wetlands_protected,
+              species_saved: payload.new.species_saved,
+              volunteers_engaged: payload.new.volunteers_engaged,
+              reports_submitted: payload.new.reports_submitted,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { stats, loading, error };

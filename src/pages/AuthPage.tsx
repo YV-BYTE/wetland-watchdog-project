@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,12 +8,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const AuthPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, signIn, signUp } = useAuth();
+
+  // Reset error when form fields change
+  useEffect(() => {
+    setPasswordError('');
+  }, [email, password, confirmPassword]);
 
   // Redirect if already logged in
   if (user) {
@@ -29,6 +38,19 @@ const AuthPage = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate password length
+    if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters long');
+      return;
+    }
+    
+    // Validate password match
+    if (password !== confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
+    
     setIsSubmitting(true);
     await signUp(email, password);
     setIsSubmitting(false);
@@ -118,10 +140,29 @@ const AuthPage = () => {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                         />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="confirm-password">Confirm Password</Label>
+                        <Input
+                          id="confirm-password"
+                          type="password"
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
                         <p className="text-xs text-muted-foreground">
                           Password must be at least 6 characters long
                         </p>
                       </div>
+                      
+                      {passwordError && (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Error</AlertTitle>
+                          <AlertDescription>{passwordError}</AlertDescription>
+                        </Alert>
+                      )}
+                      
                       <Button 
                         type="submit" 
                         className="w-full" 

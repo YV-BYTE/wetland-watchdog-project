@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, Users, BookOpen, MapPin, HelpCircle, User, Bell, Menu, X, LogOut, LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,12 +51,14 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
 
   // Get user initials for avatar
   const getUserInitials = () => {
-    if (!user) return 'GU';
+    if (profile?.username) {
+      // Get initials from username
+      return profile.username.substring(0, 2).toUpperCase();
+    }
     
-    // Try to get initials from email
-    const email = user.email || '';
-    if (email) {
-      return email.substring(0, 2).toUpperCase();
+    if (user?.email) {
+      // Get initials from email
+      return user.email.substring(0, 2).toUpperCase();
     }
     
     return 'WW';
@@ -91,19 +93,29 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-primary/10 text-primary">
-                          {getUserInitials()}
-                        </AvatarFallback>
+                        {profile?.avatar_url ? (
+                          <AvatarImage src={profile.avatar_url} alt={profile.username || "User"} />
+                        ) : (
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {getUserInitials()}
+                          </AvatarFallback>
+                        )}
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <User className="mr-2 h-4 w-4" />
-                      <Link to="/profile">Profile</Link>
+                    <div className="px-2 py-1.5 text-sm font-medium">
+                      {profile?.username || user.email}
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/profile" className="flex w-full cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        Profile
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => signOut()}>
+                    <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Log out</span>
                     </DropdownMenuItem>
@@ -124,21 +136,29 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full mr-2">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-primary/10 text-primary">
-                          {getUserInitials()}
-                        </AvatarFallback>
+                        {profile?.avatar_url ? (
+                          <AvatarImage src={profile.avatar_url} alt={profile.username || "User"} />
+                        ) : (
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {getUserInitials()}
+                          </AvatarFallback>
+                        )}
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Link to="/profile" className="flex items-center w-full">
+                    <div className="px-2 py-1.5 text-sm font-medium">
+                      {profile?.username || user.email}
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/profile" className="flex w-full cursor-pointer">
                         <User className="mr-2 h-4 w-4" />
                         Profile
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => signOut()}>
+                    <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Log out</span>
                     </DropdownMenuItem>

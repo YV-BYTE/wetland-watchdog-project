@@ -35,7 +35,7 @@ const availabilityOptions = [
 ];
 
 const VolunteerForm = () => {
-  const { user } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
@@ -70,6 +70,19 @@ const VolunteerForm = () => {
     setIsSubmitting(true);
 
     try {
+      // Check if this user already registered as a volunteer
+      const { data: existingVolunteer } = await supabase
+        .from('volunteers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+        
+      if (existingVolunteer) {
+        toast.error("You have already registered as a volunteer");
+        setIsSubmitting(false);
+        return;
+      }
+      
       const { error } = await supabase
         .from('volunteers')
         .insert([
@@ -87,10 +100,14 @@ const VolunteerForm = () => {
       if (error) throw error;
       
       // Update user points
+      const currentPoints = profile?.points || 0;
       await supabase
         .from('profiles')
-        .update({ points: (profile?.points || 0) + 100 })
+        .update({ points: currentPoints + 100 })
         .eq('id', user.id);
+      
+      // Refresh the profile to show updated points
+      await refreshProfile();
       
       toast.success("Thank you for registering as a volunteer!", {
         description: "We'll be in touch with opportunities soon.",

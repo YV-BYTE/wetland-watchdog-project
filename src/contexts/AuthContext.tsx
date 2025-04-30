@@ -4,11 +4,24 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+interface ProfileType {
+  id: string;
+  username: string;
+  points: number;
+  level: number;
+  avatar_url?: string;
+  created_at: string;
+}
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
-  profile: any | null;
+  profile: ProfileType | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
@@ -21,8 +34,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any | null>(null);
+  const [profile, setProfile] = useState<ProfileType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [username, setUsername] = useState('');
+  const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -70,6 +86,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setProfile(data);
+      
+      // If username is not set, show profile setup dialog
+      if (!data.username || data.username === userId || data.username === user?.email) {
+        setShowProfileSetup(true);
+      }
     } catch (error) {
       console.error('Error in fetchProfile:', error);
     }
@@ -88,7 +109,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password
       });
 
-      if (error) throw error;
+      if (error) {
+        // Special handling for email not confirmed
+        if (error.message.includes('Email not confirmed')) {
+          toast.error('Email not confirmed', {
+            description: 'Please check your email and click the confirmation link'
+          });
+        } else {
+          throw error;
+        }
+        return;
+      }
 
       toast.success('Signed in successfully');
       navigate('/');
@@ -109,8 +140,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
 
+      // Note: the user should now be automatically logged in if email confirmation is disabled
+      // and the profile trigger will create their profile in the database
+      
       toast.success('Signed up successfully', {
-        description: 'Please check your email to verify your account.'
+        description: 'Welcome to Wetland Warden!'
       });
       navigate('/');
     } catch (error: any) {
@@ -135,6 +169,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Sign out error:', error);
     }
   }
+  
+  async function updateUsername() {
+    if (!user || !username.trim()) return;
+    
+    setIsSubmittingProfile(true);
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ username: username.trim() })
+        .eq('id', user.id);
+        
+      if (error) throw error;
+      
+      toast.success('Profile updated successfully');
+      setShowProfileSetup(false);
+      await refreshProfile();
+    } catch (error: any) {
+      toast.error('Error updating profile', {
+        description: error.message
+      });
+    } finally {
+      setIsSubmittingProfile(false);
+    }
+  }
 
   return (
     <AuthContext.Provider value={{
@@ -148,6 +207,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshProfile
     }}>
       {children}
+      
+      {/* Profile Setup Dialog */}
+      <Dialog open={showProfileSetup} onOpenChange={setShowProfileSetup}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Your Profile</DialogTitle>
+            <DialogDescription>
+              Please enter a username to complete your profile setup.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                placeholder="Enter your preferred username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              onClick={updateUsername} 
+              disabled={!username.trim() || isSubmittingProfile}
+            >
+              {isSubmittingProfile ? "Saving..." : "Save Profile"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AuthContext.Provider>
   );
 }
