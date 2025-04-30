@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,8 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { v4 as uuidv4 } from "uuid";
 
 const WetlandReportForm = () => {
+  const { user, profile, refreshProfile } = useAuth();
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     description: "",
     location: "",
@@ -56,6 +63,13 @@ const WetlandReportForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast.error("You must be logged in to submit a report");
+      navigate("/auth");
+      return;
+    }
+    
     setIsSubmitting(true);
 
     // Verify at least one severity is checked
@@ -66,10 +80,58 @@ const WetlandReportForm = () => {
       return;
     }
 
-    // Simulate API call
+    let imageUrl = null;
+    
     try {
-      // In a real app with Supabase, you would upload the image and save to the database here
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // If there's an image file, upload it to storage
+      if (formData.imageFile) {
+        const fileExt = formData.imageFile.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+        
+        const { data: fileData, error: uploadError } = await supabase.storage
+          .from('reports')
+          .upload(filePath, formData.imageFile);
+          
+        if (uploadError) {
+          throw uploadError;
+        }
+        
+        // Get the public URL for the uploaded file
+        const { data: { publicUrl } } = supabase.storage
+          .from('reports')
+          .getPublicUrl(filePath);
+          
+        imageUrl = publicUrl;
+      }
+      
+      // Save report data
+      const { error } = await supabase
+        .from('wetland_reports')
+        .insert([
+          {
+            user_id: user.id,
+            description: formData.description,
+            location: formData.location,
+            image_url: imageUrl,
+            pollution: formData.severities.pollution,
+            invasive_species: formData.severities.invasiveSpecies,
+            drainage: formData.severities.drainage,
+            illegal: formData.severities.illegal,
+            development: formData.severities.development
+          }
+        ]);
+        
+      if (error) throw error;
+      
+      // Add points to user's profile
+      await supabase
+        .from('profiles')
+        .update({ points: (profile?.points || 0) + 200 })
+        .eq('id', user.id);
+        
+      // Refresh user profile to show updated points
+      await refreshProfile();
       
       toast.success("Wetland report submitted successfully!", {
         description: "Thank you for helping us monitor wetland issues.",
@@ -89,9 +151,9 @@ const WetlandReportForm = () => {
           development: false
         }
       });
-    } catch (error) {
+    } catch (error: any) {
       toast.error("Error submitting report", {
-        description: "Please try again later.",
+        description: error.message || "Please try again later.",
       });
       console.error("Form submission error:", error);
     } finally {
@@ -101,6 +163,19 @@ const WetlandReportForm = () => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-md">
+      {!user && (
+        <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200 text-yellow-800 mb-4">
+          <p className="font-medium">You need to be logged in to submit a report</p>
+          <Button 
+            variant="outline" 
+            className="mt-2"
+            onClick={() => navigate("/auth")}
+          >
+            Sign in / Create account
+          </Button>
+        </div>
+      )}
+      
       <div className="space-y-2">
         <Label htmlFor="image">Upload Image</Label>
         <div className="grid grid-cols-1 gap-4">
@@ -226,7 +301,7 @@ const WetlandReportForm = () => {
       <Button
         type="submit"
         className="w-full bg-primary"
-        disabled={isSubmitting}
+        disabled={isSubmitting || !user}
       >
         {isSubmitting ? "Submitting..." : "Submit Report"}
       </Button>

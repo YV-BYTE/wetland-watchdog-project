@@ -1,41 +1,172 @@
 
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 
 const ProfilePage = () => {
-  // Mock user data - in a real app with Supabase, this would come from the auth and database
-  const userData = {
-    name: "Alex Morgan",
-    email: "alex.morgan@example.com",
-    joinDate: "Jan 15, 2023",
-    points: 385,
-    nextLevel: 500,
-    level: 3,
-    badges: ["Wetland Reporter", "Quiz Master", "Early Adopter"],
-    activities: [
-      { type: "report", title: "Reported water pollution at Cedar Lake", date: "Apr 12, 2023", points: 200 },
-      { type: "volunteer", title: "Joined cleanup drive at Heron Point", date: "Mar 24, 2023", points: 100 },
-      { type: "quiz", title: "Completed Wetland Basics Quiz", date: "Feb 18, 2023", points: 85 },
-    ],
-    drivesCreated: [
-      { title: "Bird Watching Expedition", date: "May 20, 2023", participants: 12 },
-    ],
-    drivesJoined: [
-      { title: "Native Plant Restoration", date: "Apr 5, 2023", organizer: "Park Rangers" },
-      { title: "Water Quality Testing Workshop", date: "Mar 10, 2023", organizer: "EcoLab" },
-    ],
-    reports: [
-      { title: "Invasive Species Sighting", location: "Maple Creek", status: "Under Investigation", date: "Apr 12, 2023" },
-      { title: "Illegal Dumping", location: "River Bend Park", status: "Resolved", date: "Feb 3, 2023" },
-    ]
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const [activities, setActivities] = useState([]);
+  const [drivesCreated, setDrivesCreated] = useState([]);
+  const [drivesJoined, setDrivesJoined] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [badges, setBadges] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Redirect to login if not authenticated
+    if (!user && !loading) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    async function fetchUserData() {
+      if (!user) return;
+
+      try {
+        setLoading(true);
+        
+        // Fetch user badges
+        const { data: badgesData } = await supabase
+          .from('user_badges')
+          .select('badge_name, awarded_at')
+          .eq('user_id', user.id);
+        
+        // Fetch reports
+        const { data: reportsData } = await supabase
+          .from('wetland_reports')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        // Fetch drives created by user
+        const { data: createdDrives } = await supabase
+          .from('community_drives')
+          .select('*')
+          .eq('creator_id', user.id);
+        
+        // Fetch drives joined by user
+        const { data: joinedDrivesIds } = await supabase
+          .from('drive_participants')
+          .select('drive_id, joined_at')
+          .eq('user_id', user.id);
+          
+        const joinedDriveIds = joinedDrivesIds?.map(item => item.drive_id) || [];
+        
+        let joinedDrives = [];
+        if (joinedDriveIds.length > 0) {
+          // Fetch the actual drive details for drives the user joined
+          const { data: drivesData } = await supabase
+            .from('community_drives')
+            .select('*, creator:profiles(username)')
+            .in('id', joinedDriveIds);
+            
+          joinedDrives = drivesData || [];
+        }
+        
+        // Create combined activities list
+        const allActivities = [
+          ...(reportsData?.map(report => ({
+            type: 'report',
+            title: `Reported ${
+              (report.pollution ? 'pollution' : '') ||
+              (report.invasive_species ? 'invasive species' : '') ||
+              (report.drainage ? 'drainage issues' : '') ||
+              (report.illegal ? 'illegal activity' : '') ||
+              (report.development ? 'development threat' : '') ||
+              'issue'
+            } at ${report.location}`,
+            date: new Date(report.created_at).toLocaleDateString(),
+            points: 200
+          })) || []),
+          ...(joinedDrives?.map(drive => ({
+            type: 'volunteer',
+            title: `Joined community drive: ${drive.title}`,
+            date: new Date(drive.date).toLocaleDateString(),
+            points: 100
+          })) || [])
+        ];
+        
+        // Sort activities by date (newest first)
+        allActivities.sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        
+        setBadges(badgesData || []);
+        setReports(reportsData || []);
+        setDrivesCreated(createdDrives || []);
+        setDrivesJoined(joinedDrives || []);
+        setActivities(allActivities);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchUserData();
+  }, [user]);
+
+  async function handleLeaveDrive(driveId: string) {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('drive_participants')
+        .delete()
+        .match({ user_id: user.id, drive_id: driveId });
+
+      if (error) throw error;
+      
+      // Update the local state by filtering out the left drive
+      setDrivesJoined(prev => prev.filter(drive => drive.id !== driveId));
+      
+    } catch (error) {
+      console.error("Error leaving drive:", error);
+    }
+  }
+
+  // Calculate next level thresholds
+  const calculateNextLevel = (currentPoints: number) => {
+    const basePoints = 500;
+    const currentLevel = Math.floor(currentPoints / basePoints) + 1;
+    const nextLevelPoints = currentLevel * basePoints;
+    
+    return {
+      level: currentLevel,
+      nextLevel: nextLevelPoints,
+      progress: (currentPoints / nextLevelPoints) * 100
+    };
   };
 
-  // Calculate progress percentage
-  const progressPercentage = (userData.points / userData.nextLevel) * 100;
+  if (!user || loading) {
+    return (
+      <MainLayout>
+        <section className="py-12 bg-wetland-gradient">
+          <div className="container mx-auto px-4 text-center">
+            <h1 className="text-2xl font-bold mb-4">Loading profile...</h1>
+          </div>
+        </section>
+      </MainLayout>
+    );
+  }
+
+  const levelInfo = calculateNextLevel(profile?.points || 0);
+  
+  // Default badges if none exist
+  const userBadges = badges.length > 0 
+    ? badges.map(b => b.badge_name) 
+    : profile?.points >= 200 
+      ? ["Wetland Reporter"] 
+      : ["New Member"];
 
   return (
     <MainLayout>
@@ -49,26 +180,28 @@ const ProfilePage = () => {
                   <CardHeader className="text-center">
                     <Avatar className="w-24 h-24 mx-auto border-4 border-primary/20">
                       <AvatarFallback className="bg-primary text-2xl text-primary-foreground">
-                        AM
+                        {user.email?.substring(0, 2).toUpperCase() || 'U'}
                       </AvatarFallback>
                     </Avatar>
-                    <CardTitle className="mt-2">{userData.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">Member since {userData.joinDate}</p>
+                    <CardTitle className="mt-2">{profile?.username || user.email}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Member since {new Date(user.created_at || Date.now()).toLocaleDateString()}
+                    </p>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-6">
                       <div>
                         <div className="flex justify-between mb-2 text-sm">
-                          <span>Level {userData.level}</span>
-                          <span>{userData.points}/{userData.nextLevel} XP</span>
+                          <span>Level {levelInfo.level}</span>
+                          <span>{profile?.points || 0}/{levelInfo.nextLevel} XP</span>
                         </div>
-                        <Progress value={progressPercentage} className="h-2" />
+                        <Progress value={levelInfo.progress} className="h-2" />
                       </div>
                       
                       <div>
                         <h3 className="text-sm font-medium mb-2">Badges</h3>
                         <div className="flex flex-wrap gap-2">
-                          {userData.badges.map((badge, i) => (
+                          {userBadges.map((badge, i) => (
                             <Badge key={i} variant="outline">{badge}</Badge>
                           ))}
                         </div>
@@ -76,7 +209,7 @@ const ProfilePage = () => {
                       
                       <div className="pt-4 border-t">
                         <h3 className="text-sm font-medium mb-2">Contact Information</h3>
-                        <p className="text-sm text-muted-foreground">{userData.email}</p>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -98,42 +231,47 @@ const ProfilePage = () => {
                       </TabsList>
                       
                       <TabsContent value="activities" className="space-y-4">
-                        {userData.activities.map((activity, i) => (
-                          <div key={i} className="flex items-start gap-4 p-3 border rounded-lg">
-                            <div className={`p-2 rounded-full ${
-                              activity.type === 'report' 
-                                ? 'bg-blue-100 text-blue-700' 
-                                : activity.type === 'volunteer'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-purple-100 text-purple-700'
-                            }`}>
-                              {activity.type === 'report' ? '📝' : activity.type === 'volunteer' ? '🤝' : '❓'}
+                        {activities.length === 0 ? (
+                          <p className="text-center text-muted-foreground py-8">
+                            No activities yet. Start by reporting wetland issues or joining community drives!
+                          </p>
+                        ) : (
+                          activities.map((activity, i) => (
+                            <div key={i} className="flex items-start gap-4 p-3 border rounded-lg">
+                              <div className={`p-2 rounded-full ${
+                                activity.type === 'report' 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : activity.type === 'volunteer'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-purple-100 text-purple-700'
+                              }`}>
+                                {activity.type === 'report' ? '📝' : activity.type === 'volunteer' ? '🤝' : '❓'}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium">{activity.title}</p>
+                                <p className="text-sm text-muted-foreground">{activity.date}</p>
+                              </div>
+                              <Badge variant="secondary">+{activity.points} pts</Badge>
                             </div>
-                            <div className="flex-1">
-                              <p className="font-medium">{activity.title}</p>
-                              <p className="text-sm text-muted-foreground">{activity.date}</p>
-                            </div>
-                            <Badge variant="secondary">+{activity.points} pts</Badge>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </TabsContent>
                       
                       <TabsContent value="drives">
                         <div className="space-y-6">
                           <div>
                             <h3 className="text-lg font-medium mb-3">Drives You Created</h3>
-                            {userData.drivesCreated.length === 0 ? (
+                            {drivesCreated.length === 0 ? (
                               <p className="text-sm text-muted-foreground">You haven't created any community drives yet.</p>
                             ) : (
                               <div className="space-y-3">
-                                {userData.drivesCreated.map((drive, i) => (
+                                {drivesCreated.map((drive, i) => (
                                   <div key={i} className="p-3 border rounded-lg">
                                     <div className="flex justify-between items-start">
                                       <div>
                                         <p className="font-medium">{drive.title}</p>
-                                        <p className="text-sm text-muted-foreground">{drive.date}</p>
+                                        <p className="text-sm text-muted-foreground">{new Date(drive.date).toLocaleDateString()}</p>
                                       </div>
-                                      <Badge>{drive.participants} participants</Badge>
                                     </div>
                                   </div>
                                 ))}
@@ -143,38 +281,63 @@ const ProfilePage = () => {
                           
                           <div>
                             <h3 className="text-lg font-medium mb-3">Drives You Joined</h3>
-                            <div className="space-y-3">
-                              {userData.drivesJoined.map((drive, i) => (
-                                <div key={i} className="p-3 border rounded-lg">
-                                  <p className="font-medium">{drive.title}</p>
-                                  <div className="flex justify-between">
-                                    <p className="text-sm text-muted-foreground">Organized by: {drive.organizer}</p>
-                                    <p className="text-sm text-muted-foreground">{drive.date}</p>
+                            {drivesJoined.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">You haven't joined any community drives yet.</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {drivesJoined.map((drive, i) => (
+                                  <div key={i} className="p-3 border rounded-lg">
+                                    <p className="font-medium">{drive.title}</p>
+                                    <div className="flex justify-between items-center mt-2">
+                                      <p className="text-sm text-muted-foreground">
+                                        {new Date(drive.date).toLocaleDateString()} at {drive.time}
+                                      </p>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        onClick={() => handleLeaveDrive(drive.id)}
+                                      >
+                                        Leave Drive
+                                      </Button>
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
-                            </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </TabsContent>
                       
                       <TabsContent value="reports">
-                        <div className="space-y-3">
-                          {userData.reports.map((report, i) => (
-                            <div key={i} className="p-3 border rounded-lg">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <p className="font-medium">{report.title}</p>
-                                  <p className="text-sm text-muted-foreground">Location: {report.location}</p>
-                                  <p className="text-sm text-muted-foreground">Submitted: {report.date}</p>
+                        {reports.length === 0 ? (
+                          <p className="text-center text-muted-foreground py-8">
+                            You haven't submitted any wetland reports yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            {reports.map((report, i) => (
+                              <div key={i} className="p-3 border rounded-lg">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium">
+                                      {(report.pollution ? 'Water Pollution' : '') ||
+                                       (report.invasive_species ? 'Invasive Species' : '') ||
+                                       (report.drainage ? 'Drainage Issues' : '') ||
+                                       (report.illegal ? 'Illegal Activity' : '') ||
+                                       (report.development ? 'Development Threat' : '') ||
+                                       'Wetland Issue'}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">Location: {report.location}</p>
+                                    <p className="text-sm text-muted-foreground">Submitted: {new Date(report.created_at).toLocaleDateString()}</p>
+                                  </div>
+                                  <Badge variant={report.status === "Resolved" ? "outline" : "secondary"}>
+                                    {report.status}
+                                  </Badge>
                                 </div>
-                                <Badge variant={report.status === "Resolved" ? "outline" : "secondary"}>
-                                  {report.status}
-                                </Badge>
                               </div>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </TabsContent>
                     </Tabs>
                   </CardContent>

@@ -1,47 +1,69 @@
 
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
-// Placeholder data - in a real app, this would come from Supabase
-const volunteers = [
-  {
-    id: 1,
-    name: "Alex Johnson",
-    expertise: "Environmental Science",
-    location: "Portland, Oregon",
-    email: "alex.j@example.com",
-    initials: "AJ"
-  },
-  {
-    id: 2,
-    name: "Morgan Lee",
-    expertise: "Wildlife Conservation",
-    location: "Austin, Texas",
-    email: "morgan@example.com",
-    initials: "ML"
-  },
-  {
-    id: 3,
-    name: "Jamie Smith",
-    expertise: "Education",
-    location: "Seattle, Washington",
-    email: "jamie.s@example.com",
-    initials: "JS"
-  },
-  {
-    id: 4,
-    name: "Taylor Wong",
-    expertise: "Community Outreach",
-    location: "Boston, Massachusetts",
-    email: "taylor.w@example.com",
-    initials: "TW"
-  }
-];
+type Volunteer = {
+  id: string;
+  name: string;
+  expertise: string;
+  location: string;
+  email: string;
+  created_at: string;
+};
 
 const VolunteerDirectory = () => {
+  const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchVolunteers() {
+      try {
+        const { data, error } = await supabase
+          .from('volunteers')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        setVolunteers(data || []);
+      } catch (error) {
+        console.error('Error fetching volunteers:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchVolunteers();
+  }, []);
+
+  // Function to get initials from name
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase();
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading volunteers...</div>;
+  }
+
+  if (volunteers.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">No volunteers registered yet. Be the first!</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -51,7 +73,7 @@ const VolunteerDirectory = () => {
               <div className="flex items-start gap-4">
                 <Avatar className="h-12 w-12 border-2 border-primary">
                   <AvatarFallback className="bg-primary/10 text-primary">
-                    {volunteer.initials}
+                    {getInitials(volunteer.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="space-y-1">

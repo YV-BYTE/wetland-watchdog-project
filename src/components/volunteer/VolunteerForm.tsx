@@ -1,11 +1,14 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const expertiseOptions = [
   "Environmental Science",
@@ -32,6 +35,9 @@ const availabilityOptions = [
 ];
 
 const VolunteerForm = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -54,12 +60,37 @@ const VolunteerForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast.error("You must be logged in to register as a volunteer");
+      navigate("/auth");
+      return;
+    }
+    
     setIsSubmitting(true);
 
-    // Simulate API call
     try {
-      // In a real app with Supabase, you would save to the database here
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { error } = await supabase
+        .from('volunteers')
+        .insert([
+          { 
+            user_id: user.id,
+            name: formData.name,
+            email: formData.email,
+            expertise: formData.expertise,
+            availability: formData.availability,
+            location: formData.location,
+            bio: formData.bio || null
+          }
+        ]);
+      
+      if (error) throw error;
+      
+      // Update user points
+      await supabase
+        .from('profiles')
+        .update({ points: (profile?.points || 0) + 100 })
+        .eq('id', user.id);
       
       toast.success("Thank you for registering as a volunteer!", {
         description: "We'll be in touch with opportunities soon.",
@@ -74,9 +105,9 @@ const VolunteerForm = () => {
         location: "",
         bio: "",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast.error("There was a problem with your submission", {
-        description: "Please try again later.",
+        description: error.message || "Please try again later.",
       });
       console.error("Form submission error:", error);
     } finally {
@@ -86,6 +117,19 @@ const VolunteerForm = () => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-md mx-auto">
+      {!user && (
+        <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200 text-yellow-800 mb-4">
+          <p className="font-medium">You need to be logged in to register as a volunteer</p>
+          <Button 
+            variant="outline" 
+            className="mt-2"
+            onClick={() => navigate("/auth")}
+          >
+            Sign in / Create account
+          </Button>
+        </div>
+      )}
+      
       <div className="space-y-2">
         <Label htmlFor="name">Full Name</Label>
         <Input
@@ -174,7 +218,7 @@ const VolunteerForm = () => {
       <Button
         type="submit"
         className="w-full bg-primary"
-        disabled={isSubmitting}
+        disabled={isSubmitting || !user}
       >
         {isSubmitting ? "Submitting..." : "Register as Volunteer"}
       </Button>

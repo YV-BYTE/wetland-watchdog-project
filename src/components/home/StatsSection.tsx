@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { useStatistics } from "@/hooks/useStatistics";
 
 type StatCardProps = {
   icon: React.ReactNode;
@@ -58,6 +59,8 @@ const StatCard = ({
 };
 
 const StatsSection = () => {
+  const { stats, loading } = useStatistics();
+
   return (
     <section className="py-16 bg-muted/50">
       <div className="container mx-auto px-4">
@@ -68,33 +71,37 @@ const StatsSection = () => {
             wetland ecosystems around the world.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            icon={<span className="text-2xl">🌿</span>}
-            value={125}
-            label="Conservation Projects"
-            delay={0}
-          />
-          <StatCard
-            icon={<span className="text-2xl">👥</span>}
-            value={3500}
-            label="Active Volunteers"
-            delay={200}
-          />
-          <StatCard
-            icon={<span className="text-2xl">🌎</span>}
-            value={42}
-            label="Countries Represented"
-            delay={400}
-          />
-          <StatCard
-            icon={<span className="text-2xl">🦆</span>}
-            value={1200}
-            label="Species Protected"
-            suffix="+"
-            delay={600}
-          />
-        </div>
+        {loading ? (
+          <div className="text-center">Loading statistics...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard
+              icon={<span className="text-2xl">🌿</span>}
+              value={stats.wetlands_protected}
+              label="Conservation Projects"
+              delay={0}
+            />
+            <StatCard
+              icon={<span className="text-2xl">👥</span>}
+              value={stats.volunteers_engaged}
+              label="Active Volunteers"
+              delay={200}
+            />
+            <StatCard
+              icon={<span className="text-2xl">🌎</span>}
+              value={42}
+              label="Countries Represented"
+              delay={400}
+            />
+            <StatCard
+              icon={<span className="text-2xl">🦆</span>}
+              value={stats.species_saved}
+              label="Species Protected"
+              suffix="+"
+              delay={600}
+            />
+          </div>
+        )}
       </div>
     </section>
   );

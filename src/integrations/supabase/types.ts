@@ -9,7 +9,227 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      community_drives: {
+        Row: {
+          created_at: string
+          creator_id: string | null
+          date: string
+          description: string
+          id: string
+          location: string
+          time: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id?: string | null
+          date: string
+          description: string
+          id?: string
+          location: string
+          time: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string | null
+          date?: string
+          description?: string
+          id?: string
+          location?: string
+          time?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      drive_participants: {
+        Row: {
+          drive_id: string | null
+          id: string
+          joined_at: string
+          user_id: string | null
+        }
+        Insert: {
+          drive_id?: string | null
+          id?: string
+          joined_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          drive_id?: string | null
+          id?: string
+          joined_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drive_participants_drive_id_fkey"
+            columns: ["drive_id"]
+            isOneToOne: false
+            referencedRelation: "community_drives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          level: number
+          points: number
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id: string
+          level?: number
+          points?: number
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          level?: number
+          points?: number
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      user_badges: {
+        Row: {
+          awarded_at: string
+          badge_name: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          awarded_at?: string
+          badge_name: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          awarded_at?: string
+          badge_name?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      volunteers: {
+        Row: {
+          availability: string
+          bio: string | null
+          created_at: string
+          email: string
+          expertise: string
+          id: string
+          location: string
+          name: string
+          user_id: string | null
+        }
+        Insert: {
+          availability: string
+          bio?: string | null
+          created_at?: string
+          email: string
+          expertise: string
+          id?: string
+          location: string
+          name: string
+          user_id?: string | null
+        }
+        Update: {
+          availability?: string
+          bio?: string | null
+          created_at?: string
+          email?: string
+          expertise?: string
+          id?: string
+          location?: string
+          name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      wetland_reports: {
+        Row: {
+          created_at: string
+          description: string
+          development: boolean
+          drainage: boolean
+          id: string
+          illegal: boolean
+          image_url: string | null
+          invasive_species: boolean
+          location: string
+          pollution: boolean
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          development?: boolean
+          drainage?: boolean
+          id?: string
+          illegal?: boolean
+          image_url?: string | null
+          invasive_species?: boolean
+          location: string
+          pollution?: boolean
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          development?: boolean
+          drainage?: boolean
+          id?: string
+          illegal?: boolean
+          image_url?: string | null
+          invasive_species?: boolean
+          location?: string
+          pollution?: boolean
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      wetland_statistics: {
+        Row: {
+          id: string
+          last_updated: string
+          reports_submitted: number
+          species_saved: number
+          volunteers_engaged: number
+          wetlands_protected: number
+        }
+        Insert: {
+          id?: string
+          last_updated?: string
+          reports_submitted?: number
+          species_saved?: number
+          volunteers_engaged?: number
+          wetlands_protected?: number
+        }
+        Update: {
+          id?: string
+          last_updated?: string
+          reports_submitted?: number
+          species_saved?: number
+          volunteers_engaged?: number
+          wetlands_protected?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
