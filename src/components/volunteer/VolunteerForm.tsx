@@ -71,11 +71,16 @@ const VolunteerForm = () => {
 
     try {
       // Check if this user already registered as a volunteer
-      const { data: existingVolunteer } = await supabase
+      const { data: existingVolunteer, error: checkError } = await supabase
         .from('volunteers')
         .select('id')
         .eq('user_id', user.id)
         .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        // PGRST116 means no rows returned, which is fine - other errors are problematic
+        throw checkError;
+      }
         
       if (existingVolunteer) {
         toast.error("You have already registered as a volunteer");
@@ -83,7 +88,7 @@ const VolunteerForm = () => {
         return;
       }
       
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('volunteers')
         .insert([
           { 
@@ -97,14 +102,20 @@ const VolunteerForm = () => {
           }
         ]);
       
-      if (error) throw error;
+      if (insertError) throw insertError;
       
       // Update user points
       const currentPoints = profile?.points || 0;
-      await supabase
+      const newPoints = currentPoints + 100;
+      
+      const { error: pointsError } = await supabase
         .from('profiles')
-        .update({ points: currentPoints + 100 })
+        .update({ points: newPoints })
         .eq('id', user.id);
+      
+      if (pointsError) {
+        console.error("Error updating points:", pointsError);
+      }
       
       // Refresh the profile to show updated points
       await refreshProfile();
@@ -122,6 +133,10 @@ const VolunteerForm = () => {
         location: "",
         bio: "",
       });
+      
+      // Navigate to profile page to show updated XP
+      navigate("/profile");
+      
     } catch (error: any) {
       toast.error("There was a problem with your submission", {
         description: error.message || "Please try again later.",

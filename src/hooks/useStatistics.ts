@@ -2,8 +2,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+interface WetlandStatistics {
+  wetlands_protected: number;
+  species_saved: number;
+  volunteers_engaged: number;
+  reports_submitted: number;
+}
+
 export function useStatistics() {
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<WetlandStatistics>({
     wetlands_protected: 0,
     species_saved: 0, 
     volunteers_engaged: 0,
@@ -26,10 +33,10 @@ export function useStatistics() {
 
         if (data) {
           setStats({
-            wetlands_protected: data.wetlands_protected,
-            species_saved: data.species_saved,
-            volunteers_engaged: data.volunteers_engaged,
-            reports_submitted: data.reports_submitted,
+            wetlands_protected: data.wetlands_protected || 0,
+            species_saved: data.species_saved || 0,
+            volunteers_engaged: data.volunteers_engaged || 0,
+            reports_submitted: data.reports_submitted || 0,
           });
         }
       } catch (err: any) {
@@ -54,11 +61,12 @@ export function useStatistics() {
         },
         (payload) => {
           if (payload.new) {
+            const newData = payload.new as WetlandStatistics;
             setStats({
-              wetlands_protected: payload.new.wetlands_protected,
-              species_saved: payload.new.species_saved,
-              volunteers_engaged: payload.new.volunteers_engaged,
-              reports_submitted: payload.new.reports_submitted,
+              wetlands_protected: newData.wetlands_protected || 0,
+              species_saved: newData.species_saved || 0,
+              volunteers_engaged: newData.volunteers_engaged || 0,
+              reports_submitted: newData.reports_submitted || 0,
             });
           }
         }

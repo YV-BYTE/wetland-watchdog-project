@@ -42,21 +42,21 @@ const HeroSection = () => {
           <div className="relative">
             <div className="bg-wetland-light-green p-2 rounded-lg shadow-lg transform rotate-3 relative z-10">
               <img
-                src="https://images.unsplash.com/photo-1572434800330-9bdfc9a196cc?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
-                alt="Beautiful wetland ecosystem at sunset"
+                src="https://site-547756.mozfiles.com/files/547756/medium/Swamp_Wetland.jpg"
+                alt="Beautiful wetland ecosystem"
                 className="rounded-md object-cover w-full h-80 md:h-96"
               />
             </div>
             <div className="absolute -bottom-6 -right-6 bg-wetland-water-blue p-2 rounded-lg shadow-lg transform -rotate-6 w-48 h-48 md:w-64 md:h-64">
               <img
-                src="https://images.unsplash.com/photo-1551887558-941f89d99c0a?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+                src="https://www.wetlands.org/wp-content/uploads/2015/11/Project-country-banner-wetlands-china.jpg"
                 alt="Wetland birds"
                 className="rounded-md object-cover w-full h-full"
               />
             </div>
             <div className="absolute -top-6 -left-6 bg-accent p-2 rounded-lg shadow-lg transform rotate-6 w-36 h-36 md:w-48 md:h-48">
               <img
-                src="https://images.unsplash.com/photo-1621528233038-a0797069f027?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+                src="https://californiawaterblog.com/wp-content/uploads/2023/08/Featured-Image.jpg"
                 alt="Wetland plants"
                 className="rounded-md object-cover w-full h-full"
               />

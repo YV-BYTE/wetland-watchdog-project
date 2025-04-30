@@ -89,6 +89,20 @@ const WetlandReportForm = () => {
         const fileName = `${uuidv4()}.${fileExt}`;
         const filePath = `${user.id}/${fileName}`;
         
+        // Create storage bucket if it doesn't exist
+        try {
+          const { data: buckets } = await supabase.storage.listBuckets();
+          if (!buckets?.some(bucket => bucket.name === 'reports')) {
+            await supabase.storage.createBucket('reports', {
+              public: true,
+              fileSizeLimit: 5242880 // 5MB
+            });
+          }
+        } catch (err) {
+          console.error("Error checking/creating bucket:", err);
+          // Continue anyway as bucket might already exist
+        }
+        
         const { data: fileData, error: uploadError } = await supabase.storage
           .from('reports')
           .upload(filePath, formData.imageFile);
@@ -125,11 +139,18 @@ const WetlandReportForm = () => {
       if (error) throw error;
       
       // Add points to user's profile
-      await supabase
+      const currentPoints = profile?.points || 0;
+      const newPoints = currentPoints + 200;
+      
+      const { error: pointsError } = await supabase
         .from('profiles')
-        .update({ points: (profile?.points || 0) + 200 })
+        .update({ points: newPoints })
         .eq('id', user.id);
-        
+      
+      if (pointsError) {
+        console.error("Error updating points:", pointsError);
+      }
+      
       // Refresh user profile to show updated points
       await refreshProfile();
       
@@ -151,6 +172,10 @@ const WetlandReportForm = () => {
           development: false
         }
       });
+      
+      // Navigate to profile page to see updated XP
+      navigate("/profile");
+      
     } catch (error: any) {
       toast.error("Error submitting report", {
         description: error.message || "Please try again later.",
