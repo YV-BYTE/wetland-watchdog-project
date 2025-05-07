@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Users, BookOpen, MapPin, HelpCircle, User, Bell, Menu, X, LogOut, LogIn } from 'lucide-react';
+import { Home, Users, BookOpen, MapPin, HelpCircle, User, Bell, Menu, X, LogOut, LogIn, Newspaper } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -45,6 +45,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
     { path: '/volunteer', label: 'Volunteer', icon: <Users size={18} /> },
     { path: '/community', label: 'Community', icon: <MapPin size={18} /> },
     { path: '/report', label: 'Report', icon: <Bell size={18} /> },
+    { path: '/news', label: 'News', icon: <Newspaper size={18} /> },
     { path: '/learn', label: 'Learn', icon: <BookOpen size={18} /> },
     { path: '/quiz', label: 'Quiz', icon: <HelpCircle size={18} /> },
   ];
