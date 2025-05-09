@@ -15,6 +15,7 @@ import QuizPage from "./pages/QuizPage";
 import ProfilePage from "./pages/ProfilePage";
 import AuthPage from "./pages/AuthPage";
 import NewsPage from "./pages/NewsPage";
+import WetlandMapPage from "./pages/WetlandMapPage";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/news" element={<NewsPage />} />
+            <Route path="/wetland-map" element={<WetlandMapPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
