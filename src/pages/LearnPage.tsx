@@ -1,8 +1,47 @@
 
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useState } from "react";
 
 const LearnPage = () => {
+  const [imagesLoaded, setImagesLoaded] = useState<Record<number, boolean>>({});
+  
+  const handleImageLoad = (index: number) => {
+    setImagesLoaded(prev => ({ ...prev, [index]: true }));
+  };
+  
+  const wetlandImages = [
+    {
+      src: "https://www.clf.org/wp-content/uploads/2023/05/detail-wetlands-massachusetts-us-fish-and-wildlife.jpg",
+      alt: "Massachusetts wetland ecosystem",
+      caption: "Rich wetland ecosystem in Massachusetts"
+    },
+    {
+      src: "https://site547756.mozfiles.com/files/547756/medium/Swamp_Wetland.jpg",
+      alt: "Swamp wetland with cypress trees",
+      caption: "Cypress swamp wetland"
+    },
+    {
+      src: "https://i0.wp.com/californiawaterblog.com/wp-content/uploads/2023/09/CA-wet.jpg?resize=640%2C360&ssl=1",
+      alt: "California wetland",
+      caption: "California's critical wetland habitat"
+    },
+    {
+      src: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS6DRGYIe9fdThlTH4SMcdwKpVlfBPfItkweA&s",
+      alt: "Coastal wetland",
+      caption: "Coastal wetland ecosystem"
+    },
+    {
+      src: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSfPIDO4mfetokS9sOUwZIdjsRPBIfZUYxy8Q&s",
+      alt: "Freshwater marsh wetland",
+      caption: "Freshwater marsh with diverse plant life"
+    }
+  ];
+
   return (
     <MainLayout>
       <section className="py-12 bg-wetland-gradient">
@@ -15,10 +54,37 @@ const LearnPage = () => {
             </p>
           </div>
           
+          {/* Wetland Image Gallery */}
+          <div className="mb-16">
+            <h2 className="text-3xl font-semibold text-center mb-8">Wetland Gallery</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {wetlandImages.map((image, index) => (
+                <div key={index} className="rounded-lg overflow-hidden shadow-lg transition-all hover:shadow-xl hover:-translate-y-1">
+                  <div className="relative">
+                    <AspectRatio ratio={16/9} className="bg-muted">
+                      {!imagesLoaded[index] && <Skeleton className="absolute inset-0 z-10" />}
+                      <img 
+                        src={image.src} 
+                        alt={image.alt} 
+                        className="object-cover w-full h-full"
+                        onLoad={() => handleImageLoad(index)}
+                        style={{ opacity: imagesLoaded[index] ? 1 : 0 }}
+                      />
+                    </AspectRatio>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-sm font-medium">{image.caption}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
           <div className="max-w-5xl mx-auto space-y-16">
             {/* Section 1: Importance of Wetlands */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div className="space-y-4 order-2 md:order-1">
+                <Badge variant="secondary" className="mb-2">Ecosystem Services</Badge>
                 <h2 className="text-3xl font-semibold">Importance of Wetlands</h2>
                 <p className="text-muted-foreground">
                   Wetlands are among the most productive ecosystems in the world, comparable to 
@@ -82,6 +148,7 @@ const LearnPage = () => {
               </div>
               
               <div className="space-y-4">
+                <Badge variant="destructive" className="mb-2">Conservation Challenges</Badge>
                 <h2 className="text-3xl font-semibold">Threats & Challenges</h2>
                 <p className="text-muted-foreground">
                   Despite their ecological importance, wetlands are among the most threatened ecosystems. 
@@ -124,6 +191,7 @@ const LearnPage = () => {
             {/* Section 3: Conservation Methods */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div className="space-y-4 order-2 md:order-1">
+                <Badge variant="outline" className="bg-primary/5 mb-2">Take Action</Badge>
                 <h2 className="text-3xl font-semibold">Conservation Methods</h2>
                 <p className="text-muted-foreground">
                   Effective wetland conservation involves a combination of protection, restoration, 
@@ -156,6 +224,10 @@ const LearnPage = () => {
                     </li>
                   </ul>
                 </div>
+                
+                <Button className="mt-4" onClick={() => window.location.href = '/volunteer'}>
+                  Join Our Conservation Efforts
+                </Button>
               </div>
               
               <div className="order-1 md:order-2">
