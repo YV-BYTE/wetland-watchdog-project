@@ -1,79 +1,38 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ChevronRight, RefreshCw, Award } from "lucide-react";
+import { ChevronRight, RefreshCw, Award, ChevronLeft } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Question } from "@/hooks/useQuizzes";
 
-export type Question = {
-  id: number;
-  text: string;
-  options: string[];
-  correctAnswer: number;
+type QuizQuestionProps = {
+  questions: Question[];
+  quizTitle: string;
+  onComplete: (score: number) => void;
+  onBack: () => void;
 };
 
-// Mock quiz data - in a real app, this would come from Supabase
-const quizQuestions: Question[] = [
-  {
-    id: 1,
-    text: "What percentage of the world's species depend on wetlands for survival?",
-    options: ["10%", "25%", "40%", "60%"],
-    correctAnswer: 2
-  },
-  {
-    id: 2,
-    text: "Which of these is NOT a function of wetlands?",
-    options: [
-      "Flood control",
-      "Carbon storage",
-      "Generating electricity",
-      "Water purification"
-    ],
-    correctAnswer: 2
-  },
-  {
-    id: 3,
-    text: "Which human activity has caused the greatest loss of wetlands worldwide?",
-    options: [
-      "Industrial pollution",
-      "Agriculture and development",
-      "Climate change",
-      "Tourism"
-    ],
-    correctAnswer: 1
-  },
-  {
-    id: 4,
-    text: "Wetlands are often called 'nature's kidneys' because they:",
-    options: [
-      "Filter pollutants from water",
-      "Are shaped like kidneys when viewed from above",
-      "Produce oxygen like kidneys do",
-      "Store water like kidneys store waste"
-    ],
-    correctAnswer: 0
-  },
-  {
-    id: 5,
-    text: "Which wetland type is characterized by trees growing in standing water?",
-    options: [
-      "Marsh",
-      "Swamp",
-      "Bog",
-      "Fen"
-    ],
-    correctAnswer: 1
-  }
-];
-
-const QuizQuestion = () => {
+const QuizQuestion = ({ questions, quizTitle, onComplete, onBack }: QuizQuestionProps) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const { user } = useAuth();
+
+  // Reset state when questions change
+  useEffect(() => {
+    setCurrentQuestion(0);
+    setSelectedOption(null);
+    setScore(0);
+    setQuizCompleted(false);
+    setShowFeedback(false);
+  }, [questions]);
 
   const handleOptionSelect = (value: string) => {
     setSelectedOption(parseInt(value));
@@ -81,7 +40,7 @@ const QuizQuestion = () => {
 
   const handleNextQuestion = () => {
     // Check if answer is correct and update score
-    if (selectedOption === quizQuestions[currentQuestion].correctAnswer) {
+    if (selectedOption === questions[currentQuestion].correct_answer) {
       setScore(prev => prev + 10);
       if (!showFeedback) {
         toast.success("Correct answer! +10 points");
@@ -94,14 +53,55 @@ const QuizQuestion = () => {
     
     // Wait a moment before moving to the next question
     setTimeout(() => {
-      if (currentQuestion < quizQuestions.length - 1) {
+      if (currentQuestion < questions.length - 1) {
         setCurrentQuestion(prev => prev + 1);
         setSelectedOption(null);
         setShowFeedback(false);
       } else {
         setQuizCompleted(true);
+        
+        // Update user profile with earned points if the user is logged in
+        if (user) {
+          updateUserPoints(score + 50); // Quiz score + participation bonus
+        }
+        
+        // Call onComplete with final score
+        onComplete(score);
       }
     }, 1500);
+  };
+
+  const updateUserPoints = async (pointsToAdd: number) => {
+    if (!user) return;
+
+    try {
+      // Get current user profile points
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('points')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError) throw profileError;
+      
+      const currentPoints = profileData?.points || 0;
+      const newPoints = currentPoints + pointsToAdd;
+      
+      // Calculate new level (1 level per 100 points)
+      const newLevel = Math.floor(newPoints / 100) + 1;
+      
+      // Update profile with new points and level
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ points: newPoints, level: newLevel })
+        .eq('id', user.id);
+      
+      if (updateError) throw updateError;
+      
+      console.log(`Updated user points: +${pointsToAdd}, new total: ${newPoints}`);
+    } catch (error) {
+      console.error("Error updating points:", error);
+    }
   };
 
   const restartQuiz = () => {
@@ -112,8 +112,26 @@ const QuizQuestion = () => {
     setShowFeedback(false);
   };
 
+  if (questions.length === 0) {
+    return (
+      <Card className="w-full max-w-lg mx-auto shadow-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">No Questions Available</CardTitle>
+        </CardHeader>
+        <CardContent className="pb-4 text-center">
+          <p>This quiz doesn't have any questions yet.</p>
+        </CardContent>
+        <CardFooter>
+          <Button onClick={onBack} className="w-full">
+            <ChevronLeft className="mr-2 h-4 w-4" /> Back to Quiz List
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
   if (quizCompleted) {
-    const percentScore = (score / (quizQuestions.length * 10)) * 100;
+    const percentScore = (score / (questions.length * 10)) * 100;
     let message = "";
     
     if (percentScore >= 80) {
@@ -133,7 +151,7 @@ const QuizQuestion = () => {
           <div className="mb-6">
             <Award className="h-16 w-16 mx-auto text-primary mb-2" />
             <h3 className="text-xl font-semibold mb-2">Your Score</h3>
-            <div className="text-4xl font-bold text-primary mb-2">{score}/{quizQuestions.length * 10}</div>
+            <div className="text-4xl font-bold text-primary mb-2">{score}/{questions.length * 10}</div>
             <p className="text-muted-foreground">{message}</p>
           </div>
           
@@ -146,26 +164,34 @@ const QuizQuestion = () => {
             </ul>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col sm:flex-row gap-2">
           <Button 
-            className="w-full" 
             variant="outline" 
+            className="w-full" 
             onClick={restartQuiz}
           >
             <RefreshCw className="mr-2 h-4 w-4" /> Try Again
+          </Button>
+          <Button 
+            variant="secondary"
+            className="w-full" 
+            onClick={onBack}
+          >
+            <ChevronLeft className="mr-2 h-4 w-4" /> Back to Quizzes
           </Button>
         </CardFooter>
       </Card>
     );
   }
 
-  const question = quizQuestions[currentQuestion];
+  const question = questions[currentQuestion];
+  const options = Array.isArray(question.options) ? question.options : JSON.parse(question.options);
 
   return (
     <Card className="w-full max-w-lg mx-auto shadow-lg">
       <CardHeader>
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-muted-foreground">Question {currentQuestion + 1} of {quizQuestions.length}</span>
+          <span className="text-sm text-muted-foreground">Question {currentQuestion + 1} of {questions.length}</span>
           <span className="text-sm font-medium">Score: {score}</span>
         </div>
         <CardTitle>{question.text}</CardTitle>
@@ -173,13 +199,13 @@ const QuizQuestion = () => {
       <CardContent>
         <RadioGroup value={selectedOption?.toString()} onValueChange={handleOptionSelect}>
           <div className="space-y-3">
-            {question.options.map((option, index) => (
+            {options.map((option: string, index: number) => (
               <div 
                 key={index} 
                 className={`flex items-center space-x-2 border rounded-lg p-3 cursor-pointer ${
-                  showFeedback && index === question.correctAnswer 
+                  showFeedback && index === question.correct_answer 
                     ? 'border-green-500 bg-green-50' 
-                    : showFeedback && selectedOption === index && index !== question.correctAnswer
+                    : showFeedback && selectedOption === index && index !== question.correct_answer
                     ? 'border-red-500 bg-red-50'
                     : selectedOption === index
                     ? 'border-primary'
@@ -209,7 +235,7 @@ const QuizQuestion = () => {
           onClick={handleNextQuestion} 
           disabled={selectedOption === null || showFeedback}
         >
-          {currentQuestion < quizQuestions.length - 1 ? (
+          {currentQuestion < questions.length - 1 ? (
             <>Next Question <ChevronRight className="ml-2 h-4 w-4" /></>
           ) : (
             "Complete Quiz"
